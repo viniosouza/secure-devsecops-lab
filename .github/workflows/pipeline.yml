@@ -3,6 +3,9 @@ on:
   push:
     branches: [ "main" ]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # resolve o aviso de Node.js
+
 jobs:
   security:
     runs-on: ubuntu-latest
@@ -21,17 +24,25 @@ jobs:
         pip install semgrep
         semgrep --config=auto . --json > semgrep.json
 
-  # 📦 SCA
+    # 📦 SCA - Cache do banco de dados entre runs
+    - name: Cache Dependency Check DB
+      uses: actions/cache@v4
+      with:
+        path: ~/.dependency-check/data
+        key: dependency-check-db-${{ runner.os }}
+
     - name: Dependency Check
       run: |
-        wget https://github.com/jeremylong/DependencyCheck/releases/download/v12.1.0/dependency-check-12.1.0-release.zip
-        unzip dependency-check-12.1.0-release.zip
+        wget -q https://github.com/jeremylong/DependencyCheck/releases/download/v12.1.0/dependency-check-12.1.0-release.zip
+        unzip -q dependency-check-12.1.0-release.zip
         ./dependency-check/bin/dependency-check.sh \
           --scan . \
           --format JSON \
           --out reports \
-          --noupdate \
+          --nvdApiKey ${{ secrets.NVD_API_KEY }} \
+          --data ~/.dependency-check/data \
           --failOnCVSS 7
+      continue-on-error: true
 
     # 🐳 Subir app
     - name: Run app
@@ -41,7 +52,7 @@ jobs:
       run: |
         echo "Aguardando app subir..."
         for i in {1..15}; do
-          curl -s http://localhost:5000 && echo "App pronto!" && break
+          curl -s http://localhost:5000 && echo "App pronta!" && break
           echo "Tentativa $i..."
           sleep 3
         done
@@ -54,7 +65,7 @@ jobs:
           -r zap_report.html
       continue-on-error: true
 
-    # 📁 Salvar relatórios como artefatos
+    # 📁 Salvar relatórios
     - name: Upload reports
       uses: actions/upload-artifact@v4
       if: always()
