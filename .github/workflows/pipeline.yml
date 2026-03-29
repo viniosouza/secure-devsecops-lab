@@ -21,7 +21,7 @@ jobs:
         pip install semgrep
         semgrep --config=auto . --json > semgrep.json
 
-    # 📦 SCA
+  # 📦 SCA
     - name: Dependency Check
       run: |
         wget https://github.com/jeremylong/DependencyCheck/releases/download/v12.1.0/dependency-check-12.1.0-release.zip
@@ -30,7 +30,7 @@ jobs:
           --scan . \
           --format JSON \
           --out reports \
-          --nvdApiKey ${{ secrets.NVD_API_KEY }} \
+          --noupdate \
           --failOnCVSS 7
 
     # 🐳 Subir app
