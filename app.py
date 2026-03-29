@@ -25,6 +25,8 @@ def hello():
     name = request.args.get("name")
     return f"<h1>Olá {name}</h1>"
 
+
+
 # ❌ Broken Access Control
 @app.route("/admin")
 def admin():
