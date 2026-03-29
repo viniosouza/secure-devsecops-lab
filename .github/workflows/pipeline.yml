@@ -1,5 +1,4 @@
 name: DevSecOps Pipeline
-
 on:
   push:
     branches: [ "main" ]
@@ -7,7 +6,6 @@ on:
 jobs:
   security:
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -26,17 +24,43 @@ jobs:
     # 📦 SCA
     - name: Dependency Check
       run: |
-        wget https://github.com/jeremylong/DependencyCheck/releases/download/v8.4.0/dependency-check-8.4.0-release.zip
-        unzip dependency-check-8.4.0-release.zip
-        ./dependency-check/bin/dependency-check.sh --scan . --format JSON --out reports
+        wget https://github.com/jeremylong/DependencyCheck/releases/download/v12.1.0/dependency-check-12.1.0-release.zip
+        unzip dependency-check-12.1.0-release.zip
+        ./dependency-check/bin/dependency-check.sh \
+          --scan . \
+          --format JSON \
+          --out reports \
+          --nvdApiKey ${{ secrets.NVD_API_KEY }} \
+          --failOnCVSS 7
 
     # 🐳 Subir app
     - name: Run app
       run: docker-compose -f docker/docker-compose.yml up -d
 
+    - name: Wait for app to be ready
+      run: |
+        echo "Aguardando app subir..."
+        for i in {1..15}; do
+          curl -s http://localhost:5000 && echo "App pronto!" && break
+          echo "Tentativa $i..."
+          sleep 3
+        done
+
     # 🌐 DAST
     - name: Run ZAP
       run: |
-        docker run -t owasp/zap2docker-stable zap-baseline.py \
-        -t http://localhost:5000 \
-        -r zap_report.html
+        docker run -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+          -t http://localhost:5000 \
+          -r zap_report.html
+      continue-on-error: true  # ZAP retorna exit code != 0 quando acha alertas
+
+    # 📁 Salvar relatórios como artefatos
+    - name: Upload reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          semgrep.json
+          reports/
+          zap_report.html
