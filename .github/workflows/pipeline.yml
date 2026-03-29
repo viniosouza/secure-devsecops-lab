@@ -46,7 +46,9 @@ jobs:
 
 # 🐳 Subir app
     - name: Run app
-      run: docker compose -f docker/docker-compose.yml up -d
+      run: |
+        docker build -t secure-app .
+        docker run -d -p 5000:5000 --name secure-app secure-app
 
     - name: Wait for app to be ready
       run: |
